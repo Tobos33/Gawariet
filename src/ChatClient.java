@@ -23,7 +23,7 @@ public class ChatClient {
                     // Czyta linijka po linijce to, co przysyła serwer
                     while ((serverMessage = in.readLine()) != null) {
                         System.out.println("\n" + serverMessage);
-                        System.out.println("> "); // Przywraca znak zachęty po odebraniu wiadomości
+                        System.out.println("> "); 
                     }
                 } catch (IOException e) {
                     System.out.println("\nPołączenie z serwerem zostało przerwane.");
