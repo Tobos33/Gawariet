@@ -1,9 +1,10 @@
 import java.io.*;
 import java.net.*;
+import java.util.Properties;
 import java.util.concurrent.*;
 
 public class ChatServer {
-    private static final int PORT = 12345;
+    // private static final int PORT = 12345;
 
     // Prosta, wbudowana "baza danych" użytkowników (login -> hasło)
     private static final ConcurrentHashMap<String, String> userDatabase = new ConcurrentHashMap<>();
@@ -11,7 +12,15 @@ public class ChatServer {
     // Przechowuje aktualnie zalogowanych użytkowników (login -> handler obsługujący połączenie)
     private static final ConcurrentHashMap<String, ClientHandler> activeUsers = new ConcurrentHashMap<>();
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
+    	
+    	Properties config = new Properties();
+        
+        FileInputStream file = new FileInputStream("Config.properties");
+        config.load(file);
+        
+        int PORT = Integer.valueOf(config.getProperty("PORT"));
+        
         // Inicjalizacja przykładowych użytkowników
         userDatabase.put("adam", "haslo123");
         userDatabase.put("ewa", "tajne456");

@@ -1,13 +1,24 @@
 import java.io.*;
 import java.net.*;
+import java.util.Properties;
 import java.util.Scanner;
 
 public class ChatClient {
-    private static final String SERVER_ADDRESS = "localhost";
-    private static final int SERVER_PORT = 12345;
+    // private static final String SERVER_ADDRESS = "localhost";
+    // private static final int SERVER_PORT = 12345;
 
-    public static void main(String[] args) {
-        System.out.println("Łączenie z serwerem czatu...");
+    public static void main(String[] args) throws IOException {
+    	
+    	 Properties config = new Properties();
+         
+         FileInputStream file = new FileInputStream("Config.properties");
+         config.load(file);
+         
+         int SERVER_PORT = Integer.valueOf(config.getProperty("PORT"));
+         String SERVER_ADDRESS = config.getProperty("SERVER_ADRESS");
+         
+         System.out.println("Łączenie z serwerem czatu...");
+        
 
         try (Socket socket = new Socket(SERVER_ADDRESS, SERVER_PORT);
              BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
