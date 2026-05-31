@@ -31,10 +31,16 @@ public class ChatServer {
         userDatabase.put("adam", "haslo123");
         userDatabase.put("ewa", "tajne456");
         userDatabase.put("jan", "qwerty");
+        userDatabase.put("marianka", "haslo123");
+        userDatabase.put("szymon", "tajne456");
+        userDatabase.put("pawel", "qwerty");
         
-        friendsDatabase.put("adam", new CopyOnWriteArraySet<>(Set.of("ewa")));
+        friendsDatabase.put("adam", new CopyOnWriteArraySet<>(Set.of("ewa","pawel")));
         friendsDatabase.put("ewa", new CopyOnWriteArraySet<>(Set.of("adam", "jan")));
         friendsDatabase.put("jan", new CopyOnWriteArraySet<>(Set.of("ewa")));
+        friendsDatabase.put("marianka", new CopyOnWriteArraySet<>(Set.of("ewa","szymon","adam")));
+        friendsDatabase.put("szymon", new CopyOnWriteArraySet<>(Set.of("marianka", "jan","pawel","ewa")));
+        friendsDatabase.put("pawel", new CopyOnWriteArraySet<>(Set.of("ewa","szymon","ewa")));
 
         System.out.println("Uruchamianie serwera na porcie " + PORT + "...");
 
