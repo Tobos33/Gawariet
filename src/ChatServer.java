@@ -1,6 +1,7 @@
 import java.io.*;
 import java.net.*;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.*;
 
 public class ChatServer {
@@ -11,6 +12,11 @@ public class ChatServer {
 
     // Przechowuje aktualnie zalogowanych użytkowników (login -> handler obsługujący połączenie)
     private static final ConcurrentHashMap<String, ClientHandler> activeUsers = new ConcurrentHashMap<>();
+    
+ // W klasie ChatServer
+    private static final ConcurrentHashMap<String, CopyOnWriteArraySet<String>> friendsDatabase = new ConcurrentHashMap<>();
+
+    // W metodzie main (przykładowe relacje)
 
     public static void main(String[] args) throws IOException {
     	
@@ -25,22 +31,26 @@ public class ChatServer {
         userDatabase.put("adam", "haslo123");
         userDatabase.put("ewa", "tajne456");
         userDatabase.put("jan", "qwerty");
+        
+        friendsDatabase.put("adam", new CopyOnWriteArraySet<>(Set.of("ewa")));
+        friendsDatabase.put("ewa", new CopyOnWriteArraySet<>(Set.of("adam", "jan")));
+        friendsDatabase.put("jan", new CopyOnWriteArraySet<>(Set.of("ewa")));
 
         System.out.println("Uruchamianie serwera na porcie " + PORT + "...");
 
         try (ServerSocket serverSocket = new ServerSocket(PORT)) {
-            System.out.println("Serwer nasłuchuje na połączenia.");
+            System.out.println("Serwer nasluchuje na polaczenia.");
 
             while (true) {
                 Socket clientSocket = serverSocket.accept();
-                System.out.println("Nowe połączenie: " + clientSocket.getInetAddress());
+                System.out.println("Nowe polaczenie: " + clientSocket.getInetAddress());
 
                 // Tworzenie i uruchamianie nowego wątku dla klienta
                 ClientHandler clientHandler = new ClientHandler(clientSocket);
                 new Thread(clientHandler).start();
             }
         } catch (IOException e) {
-            System.err.println("Błąd serwera: " + e.getMessage());
+            System.err.println("Blad serwera: " + e.getMessage());
         }
     }
 
@@ -61,7 +71,7 @@ public class ChatServer {
                 in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 out = new PrintWriter(socket.getOutputStream(), true);
 
-                out.println("Witaj na serwerze! Zaloguj się używając komendy: LOGIN <twój_login> <twoje_hasło>");
+                out.println("Witaj na serwerze! Zaloguj sie uzywajac komendy: LOGIN <twoj_login> <twoje_haslo>");
 
                 String message;
                 while ((message = in.readLine()) != null) {
@@ -75,7 +85,7 @@ public class ChatServer {
                             String password = tokens[2];
                             handleLogin(login, password);
                         } else {
-                            out.println("BŁĄD: Musisz się najpierw zalogować. Użyj: LOGIN <login> <hasło>");
+                            out.println("BLAD: Musisz się najpierw zalogować. Uzyj: LOGIN <login> <haslo>");
                         }
                     }
                     // Faza po zalogowaniu
@@ -87,12 +97,12 @@ public class ChatServer {
                         } else if (command.equals("LOGOUT")) {
                             break; // Wychodzi z pętli i kończy połączenie
                         } else {
-                            out.println("BŁĄD: Nieznana komenda. Użyj: SEND <odbiorca> <wiadomość> lub LOGOUT");
+                            out.println("BLAD: Nieznana komenda. Uzyj: SEND <odbiorca> <wiadomosc> lub LOGOUT");
                         }
                     }
                 }
             } catch (IOException e) {
-                System.out.println("Rozłączono klienta niespodziewanie.");
+                System.out.println("Rozlaczono klienta niespodziewanie.");
             } finally {
                 disconnect();
             }
@@ -104,28 +114,32 @@ public class ChatServer {
 
                 // Sprawdza, czy użytkownik nie jest już zalogowany z innego miejsca
                 if (activeUsers.containsKey(login)) {
-                    out.println("BŁĄD: Użytkownik jest już zalogowany.");
+                    out.println("BLAD: Uzytkownik jest juz zalogowany.");
                 } else {
                     loggedInUser = login;
                     activeUsers.put(login, this);
-                    System.out.println(login + " zalogował/a się.");
+                    System.out.println(login + " zalogowal/a się.");
                     out.println("SUKCES: Zalogowano jako " + login);
                 }
             } else {
-                out.println("BŁĄD: Nieprawidłowy login lub hasło.");
+                out.println("BLAD: Nieprawidlowy login lub haslo.");
             }
         }
 
         private void sendMessageToUser(String targetUser, String content) {
             ClientHandler targetHandler = activeUsers.get(targetUser);
-
-            if (targetHandler != null) {
+            
+            Set<String> adamsFriends = friendsDatabase.get(loggedInUser);
+            if (adamsFriends == null || !adamsFriends.contains(targetUser)) {
+                out.println("BlAD: Nie mozesz wyslac wiadomosci do " + targetUser + " – nie jestescie znajomymi.");
+                return;
+            }else if (targetHandler != null) {
                 // Użytkownik jest zalogowany, wysyłamy wiadomość
                 targetHandler.sendMessage("WIADOMOŚĆ OD [" + loggedInUser + "]: " + content);
-                out.println("SYSTEM: Wiadomość wysłana do " + targetUser);
+                out.println("SYSTEM: Wiadomosc wysłana do " + targetUser);
             } else {
                 // Użytkownik nie jest zalogowany
-                out.println("SYSTEM: Użytkownik " + targetUser + " jest w tej chwili offline lub nie istnieje.");
+                out.println("SYSTEM: Uzytkownik " + targetUser + " jest w tej chwili offline lub nie istnieje.");
             }
         }
 
@@ -137,12 +151,12 @@ public class ChatServer {
         private void disconnect() {
             if (loggedInUser != null) {
                 activeUsers.remove(loggedInUser);
-                System.out.println(loggedInUser + " wylogował/a się.");
+                System.out.println(loggedInUser + " wylogowal/a sie.");
             }
             try {
                 socket.close();
             } catch (IOException e) {
-                System.err.println("Błąd podczas zamykania gniazda: " + e.getMessage());
+                System.err.println("Blad podczas zamykania gniazda: " + e.getMessage());
             }
         }
     }
