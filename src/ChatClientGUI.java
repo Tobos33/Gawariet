@@ -37,7 +37,7 @@ public class ChatClientGUI {
         // 3. Panel boczny - Lista znajomych (prawo)
         friendsArea = new JTextArea(10, 12);
         friendsArea.setEditable(false);
-        friendsArea.setText("ZNAJOMI:\n(Użyj GET_FRIENDS)");
+        friendsArea.setText("ZNAJOMI:\n");
         JScrollPane friendsScrollPane = new JScrollPane(friendsArea);
         frame.add(friendsScrollPane, BorderLayout.EAST);
 
@@ -78,20 +78,25 @@ public class ChatClientGUI {
 
             appendChat("Połączono pomyślnie!\n");
 
-            // Wątek odbierający wiadomości z serwera w tle
+            // JEDEN Wątek odbierający wiadomości z serwera w tle
             Thread receiverThread = new Thread(() -> {
                 try {
                     String serverMessage;
+                    // Czysta, pojedyncza pętla czytająca dane z serwera
                     while ((serverMessage = in.readLine()) != null) {
                         String finalMessage = serverMessage;
                         
-                        // ZŁOTA ZASADA: Aktualizacja GUI z wątku tła musi być przez invokeLater
+                        // Bezpieczna aktualizacja komponentów GUI
                         SwingUtilities.invokeLater(() -> {
-                            // Sprawdzamy, czy serwer przysłał listę znajomych
                             if (finalMessage.startsWith("FRIENDS_LIST:")) {
                                 parseFriendsList(finalMessage);
                             } else {
                                 appendChat(finalMessage);
+                            }
+
+                            // AUTOMATYZACJA: Jeśli serwer potwierdził logowanie, automatycznie pytamy o znajomych
+                            if (finalMessage.startsWith("SUKCES: Zalogowano jako")) {
+                                out.println("GET_FRIENDS");
                             }
                         });
                     }
@@ -126,16 +131,14 @@ public class ChatClientGUI {
     }
 
     private void parseFriendsList(String rawData) {
-        // Czyścimy panel i parsujemy np. FRIENDS_LIST:ewa(ONLINE),jan(OFFLINE)
-        friendsArea.setText("ZNAJOMI:\n");
         String cleanData = rawData.replace("FRIENDS_LIST:", "");
-        if(cleanData.equalsIgnoreCase("brak znajomych")) {
+        if (cleanData.equalsIgnoreCase("brak znajomych")) {
             friendsArea.append("Brak znajomych");
             return;
         }
         String[] friends = cleanData.split(",");
         for (String friend : friends) {
-            if(!friend.isEmpty()) {
+            if (!friend.isEmpty()) {
                 friendsArea.append("• " + friend + "\n");
             }
         }

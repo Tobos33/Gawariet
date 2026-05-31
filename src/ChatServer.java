@@ -40,7 +40,7 @@ public class ChatServer {
         friendsDatabase.put("jan", new CopyOnWriteArraySet<>(Set.of("ewa")));
         friendsDatabase.put("marianka", new CopyOnWriteArraySet<>(Set.of("ewa","szymon","adam")));
         friendsDatabase.put("szymon", new CopyOnWriteArraySet<>(Set.of("marianka", "jan","pawel","ewa")));
-        friendsDatabase.put("pawel", new CopyOnWriteArraySet<>(Set.of("ewa","szymon","ewa")));
+        friendsDatabase.put("pawel", new CopyOnWriteArraySet<>(Set.of("ewa","szymon","adam")));
 
         System.out.println("Uruchamianie serwera na porcie " + PORT + "...");
 
@@ -154,7 +154,7 @@ public class ChatServer {
             }else if (targetHandler != null) {
                 // Użytkownik jest zalogowany, wysyłamy wiadomość
                 targetHandler.sendMessage("WIADOMOŚĆ OD [" + loggedInUser + "]: " + content);
-                out.println("SYSTEM: Wiadomosc wysłana do " + targetUser);
+                out.println("SYSTEM: Wiadomosc wysłana do [" + targetUser +"]: "+ content);
             } else {
                 // Użytkownik nie jest zalogowany
                 out.println("SYSTEM: Uzytkownik " + targetUser + " jest w tej chwili offline lub nie istnieje.");
