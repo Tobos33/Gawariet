@@ -9,61 +9,73 @@ public class ChatClientGUI {
     private JTextArea chatArea;
     private JTextField inputField;
     private JButton sendButton;
-    private JTextArea friendsArea; // Miejsce na listę znajomych
+    private JTextArea friendsArea;
+    private JButton refreshButton; // Nowy przycisk do ręcznego odświeżania
 
     private Socket socket;
     private BufferedReader in;
     private PrintWriter out;
 
     public static void main(String[] args) {
-        // Uruchomienie GUI w bezpiecznym wątku Swinga
         SwingUtilities.invokeLater(() -> new ChatClientGUI().initGUI());
     }
 
     public void initGUI() {
-        // 1. Tworzenie głównego okna
         frame = new JFrame("Gawariet-Gawariet Client");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(600, 400);
+        frame.setSize(650, 400);
         frame.setLayout(new BorderLayout());
 
-        // 2. Obszar czatu (środek)
+        // Obszar czatu (środek)
         chatArea = new JTextArea();
         chatArea.setEditable(false);
         chatArea.setLineWrap(true);
         JScrollPane chatScrollPane = new JScrollPane(chatArea);
         frame.add(chatScrollPane, BorderLayout.CENTER);
 
-        // 3. Panel boczny - Lista znajomych (prawo)
-        friendsArea = new JTextArea(10, 12);
-        friendsArea.setEditable(false);
-        friendsArea.setText("ZNAJOMI:\n");
-        JScrollPane friendsScrollPane = new JScrollPane(friendsArea);
-        frame.add(friendsScrollPane, BorderLayout.EAST);
+        // --- MODYFIKACJA: Panel boczny (prawo) ---
+        JPanel rightPanel = new JPanel(new BorderLayout());
 
-        // 4. Panel dolny - wpisywanie wiadomości i wysyłanie
+        // Przycisk odświeżania na samej górze prawego panelu
+        refreshButton = new JButton("^=v Odśwież listę");
+        rightPanel.add(refreshButton, BorderLayout.NORTH);
+
+        // Pole tekstowe ze znajomymi pod przyciskiem
+        friendsArea = new JTextArea(10, 44);
+        friendsArea.setEditable(false);
+        friendsArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        friendsArea.setText("ZNAJOMI:\n(Zaloguj się, aby pobrać)");
+        JScrollPane friendsScrollPane = new JScrollPane(friendsArea);
+        rightPanel.add(friendsScrollPane, BorderLayout.CENTER);
+
+        // Dodanie całego złożonego panelu na prawo
+        frame.add(rightPanel, BorderLayout.EAST);
+        // -----------------------------------------
+
+        // Panel dolny - wpisywanie wiadomości i wysyłanie
         JPanel bottomPanel = new JPanel(new BorderLayout());
         inputField = new JTextField();
         sendButton = new JButton("Wyślij");
-        
+
         bottomPanel.add(inputField, BorderLayout.CENTER);
         bottomPanel.add(sendButton, BorderLayout.EAST);
         frame.add(bottomPanel, BorderLayout.SOUTH);
 
-        // 5. Akcja wysyłania wiadomości (po kliknięciu Enter lub przycisku)
+        // Akcje przycisków i pól tekstowych
         inputField.addActionListener(e -> sendMessage());
         sendButton.addActionListener(e -> sendMessage());
 
-        // Wyświetlenie okna i próba połączenia z siecią
+        // Akcja dla nowego przycisku odświeżania
+        refreshButton.addActionListener(e -> requestFriendsList());
+
         frame.setVisible(true);
         connectToServer();
     }
 
     private void connectToServer() {
         appendChat("Łączenie z serwerem...");
-        
+
         try {
-            // Wczytywanie konfiguracji
             Properties config = new Properties();
             try (FileInputStream file = new FileInputStream("Config.properties")) {
                 config.load(file);
@@ -71,40 +83,60 @@ public class ChatClientGUI {
             String serverAddress = config.getProperty("SERVER_ADRESS");
             int serverPort = Integer.parseInt(config.getProperty("PORT"));
 
-            // Połączenie sieciowe
             socket = new Socket(serverAddress, serverPort);
             in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             out = new PrintWriter(socket.getOutputStream(), true);
 
             appendChat("Połączono pomyślnie!\n");
 
-            // JEDEN Wątek odbierający wiadomości z serwera w tle
+            // Wątek odbierający wiadomości z serwera
             Thread receiverThread = new Thread(() -> {
                 try {
                     String serverMessage;
-                    // Czysta, pojedyncza pętla czytająca dane z serwera
+                    boolean receivingFriendsBlock = false;
+                    StringBuilder friendsBuilder = new StringBuilder();
+
                     while ((serverMessage = in.readLine()) != null) {
                         String finalMessage = serverMessage;
-                        
-                        // Bezpieczna aktualizacja komponentów GUI
-                        SwingUtilities.invokeLater(() -> {
-                            if (finalMessage.startsWith("FRIENDS_LIST:")) {
-                                parseFriendsList(finalMessage);
-                            } else {
-                                appendChat(finalMessage);
-                            }
 
-                            // AUTOMATYZACJA: Jeśli serwer potwierdził logowanie, automatycznie pytamy o znajomych
-                            if (finalMessage.startsWith("SUKCES: Zalogowano jako")) {
-                                out.println("GET_FRIENDS");
-                            }
-                        });
+                        if (finalMessage.equals("=== TWOI ZNAJOMI ===")) {
+                            receivingFriendsBlock = true;
+                            friendsBuilder.setLength(0);
+                            friendsBuilder.append("=== TWOI ZNAJOMI ===\n");
+                            continue;
+                        }
+
+                        if (finalMessage.equals("====================")) {
+                            receivingFriendsBlock = false;
+                            friendsBuilder.append("====================");
+
+                            String finalFriendsText = friendsBuilder.toString();
+                            SwingUtilities.invokeLater(() -> friendsArea.setText(finalFriendsText));
+                            continue;
+                        }
+
+                        if (receivingFriendsBlock) {
+                            friendsBuilder.append(finalMessage).append("\n");
+                        } else {
+                            SwingUtilities.invokeLater(() -> {
+                                appendChat(finalMessage);
+
+                                // Automatyczne odświeżanie w kluczowych momentach akcji
+                                if (finalMessage.startsWith("SUKCES: Zalogowano jako") ||
+                                        finalMessage.startsWith("POWIADOMIENIE:") ||
+                                        finalMessage.startsWith("SYSTEM: Zaakceptowano") ||
+                                        finalMessage.startsWith("SYSTEM: Zaproszenie wysłane")) {
+
+                                    requestFriendsList();
+                                }
+                            });
+                        }
                     }
                 } catch (IOException e) {
                     SwingUtilities.invokeLater(() -> appendChat("Połączenie z serwerem zostało przerwane."));
                 }
             });
-            receiverThread.setDaemon(true); // Wątek zamknie się razem z aplikacją
+            receiverThread.setDaemon(true);
             receiverThread.start();
 
         } catch (Exception e) {
@@ -112,14 +144,23 @@ public class ChatClientGUI {
         }
     }
 
+    /**
+     * Pomocnicza metoda wysyłająca prośbę o odświeżenie listy do serwera
+     */
+    private void requestFriendsList() {
+        if (out != null) {
+            out.println("FRIENDS");
+        }
+    }
+
     private void sendMessage() {
         String text = inputField.getText().trim();
         if (!text.isEmpty() && out != null) {
-            out.println(text); // Wysyłamy komendę bezpośrednio do serwera
-            inputField.setText(""); // Czyszczenie pola tekstowego
-            
+            out.println(text);
+            inputField.setText("");
+
             if (text.equalsIgnoreCase("LOGOUT")) {
-                frame.dispose(); // Zamyka okno
+                frame.dispose();
                 System.exit(0);
             }
         }
@@ -127,20 +168,6 @@ public class ChatClientGUI {
 
     private void appendChat(String message) {
         chatArea.append(message + "\n");
-        chatArea.setCaretPosition(chatArea.getDocument().getLength()); // Auto-scroll na dół
-    }
-
-    private void parseFriendsList(String rawData) {
-        String cleanData = rawData.replace("FRIENDS_LIST:", "");
-        if (cleanData.equalsIgnoreCase("brak znajomych")) {
-            friendsArea.append("Brak znajomych");
-            return;
-        }
-        String[] friends = cleanData.split(",");
-        for (String friend : friends) {
-            if (!friend.isEmpty()) {
-                friendsArea.append("• " + friend + "\n");
-            }
-        }
+        chatArea.setCaretPosition(chatArea.getDocument().getLength());
     }
 }

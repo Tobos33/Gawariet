@@ -1,0 +1,5 @@
+# Format: login:haslo
+adam:haslo123
+ewa:tajne456
+jan:qwerty
+pawel:test123
