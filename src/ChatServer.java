@@ -94,6 +94,18 @@ public class ChatServer {
                             String targetUser = tokens[1];
                             String content = tokens[2];
                             sendMessageToUser(targetUser, content);
+                        } else if (command.equals("GET_FRIENDS")) {
+                            Set<String> friends = friendsDatabase.get(loggedInUser);
+                            if (friends == null || friends.isEmpty()) {
+                                out.println("FRIENDS_LIST: brak znajomych");
+                            } else {
+                                StringBuilder sb = new StringBuilder("FRIENDS_LIST:");
+                                for (String friend : friends) {
+                                    boolean isOnline = activeUsers.containsKey(friend);
+                                    sb.append(friend).append("(").append(isOnline ? "ONLINE" : "OFFLINE").append("),");
+                                }
+                                out.println(sb.toString()); // Serwer wysyła np. "FRIENDS_LIST:ewa(ONLINE),jan(OFFLINE),"
+                            }
                         } else if (command.equals("LOGOUT")) {
                             break; // Wychodzi z pętli i kończy połączenie
                         } else {
